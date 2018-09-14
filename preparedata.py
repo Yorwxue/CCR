@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import tensorflow.contrib.slim as slim
 import numpy as np
 from sklearn.utils import shuffle
-from CCR.ocr_datasets import OCRDatasets
+from ocr_datasets import OCRDatasets
 import cv2
-from CCR import utils
+import utils
 import math
 
 FLAGS = utils.FLAGS

@@ -1,10 +1,10 @@
 import numpy as np
 import tensorflow as tf
-import CCR.utils as utils
+import utils
 from tensorflow.python.training import moving_averages
-import CCR.ocr_mtrics as ocr_mtrics
+import ocr_mtrics
 from tensorflow.contrib import slim
-import CCR.spatial_transformer as st
+import spatial_transformer as st
 
 FLAGS = utils.FLAGS
 num_classes = utils.num_classes
@@ -59,6 +59,7 @@ class LSTMOCR(object):
 
         with tf.variable_scope('stn-1'):
             x = self._spatial_transform(self.inputs)
+#            x = self._batch_norm('bn0', x)
 
         with tf.variable_scope('cnn'):
             with tf.variable_scope('unit-1'):
@@ -73,9 +74,6 @@ class LSTMOCR(object):
                 x = self._leaky_relu(x, 0.01)
                 x = self._max_pool(x, 2, strides[1])
 
-#            with tf.variable_scope('stn-2'):
-#                x = self._spatial_transform(x)
-
             with tf.variable_scope('unit-3'):
                 x = self._conv2d(x, 'cnn-3', (3, 5), filters[1], filters[2], strides[0])
                 x = self._batch_norm('bn3', x)
@@ -88,8 +86,6 @@ class LSTMOCR(object):
                 x = self._leaky_relu(x, 0.01)
                 x = self._max_pool(x, 2, strides[1])
 
-#        with tf.variable_scope('stn-2'):
-#            x = self._spatial_transform(x)
 
         with tf.variable_scope('lstm'):
             # [batch_size, max_stepsize, num_features]
@@ -246,7 +242,6 @@ class LSTMOCR(object):
         ## x shape: [N, W, H, C=1]
         identity = np.array([[1., 0., 0.],[0., 1., 0.]])
         identity = identity.flatten()
-        #theta = tf.Variable(dtype=np.float32, initial_value=identity)
 
         conv1_loc = tf.layers.conv2d(x, 16, 3, padding='same', activation=tf.nn.relu, name='conv1_loc')
         pool1_loc = tf.layers.max_pooling2d(conv1_loc, 2, 2)
@@ -254,9 +249,6 @@ class LSTMOCR(object):
         pool2_loc = tf.layers.max_pooling2d(conv2_loc, 2, 2)
         flat_loc = tf.contrib.layers.flatten(pool2_loc)
         fc1_loc = tf.contrib.layers.fully_connected(flat_loc, 256, activation_fn=tf.nn.relu, scope='fc1_loc')
-        #ac1_loc = tf.nn.tanh(fc1_loc)
         fc2_loc = tf.contrib.layers.fully_connected(fc1_loc, 6, activation_fn=None, weights_initializer=tf.zeros_initializer(), biases_initializer=tf.constant_initializer(identity), scope='fc2_loc')
-        #ac2_loc = tf.nn.tanh(fc2_loc)
         stn = st.transformer(x, fc2_loc, out_size=(FLAGS.image_height, FLAGS.image_width))
-        #stn = st.transformer(x, ac2_loc, out_size=(FLAGS.image_height, FLAGS.image_width))
         return stn
