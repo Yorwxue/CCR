@@ -1,8 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib import slim
-
-
 from tensorflow.python.ops import math_ops
+
 def pad_pred_label(predictions, labels):
     num_digit_predictions = tf.shape(predictions)[-1]
     num_digit_labels = tf.shape(labels)[-1]
