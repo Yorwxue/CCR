@@ -18,22 +18,21 @@ logger = logging.getLogger('Traing for OCR using CNN+LSTM+CTC')
 logger.setLevel(logging.INFO)
 
 data_prep = PrepareData()
-def train(train_dir=None, val_dir=None, mode='train'):
+
+
+def train(mode='train'):
     model = cnn_lstm_ctc_ocr.LSTMOCR(mode)
     model.build_graph()
 
     print('loading train data, please wait---------------------')
-    train_feeder, num_train_samples = data_prep.input_batch_generator('train', is_training=True, batch_size = FLAGS.batch_size)
+    train_feeder, num_train_samples = data_prep.input_batch_generator('train', batch_size=FLAGS.batch_size, data_dir=FLAGS.data_dir)
     print('get image: ', num_train_samples)
 
     print('loading validation data, please wait---------------------')
-    val_feeder, num_val_samples = data_prep.input_batch_generator('val', is_training=False, batch_size = FLAGS.batch_size * 2)
+    val_feeder, num_val_samples = data_prep.input_batch_generator('val', batch_size=FLAGS.batch_size * 2, data_dir=FLAGS.data_dir)
     print('get image: ', num_val_samples)
-
    
     num_batches_per_epoch = int(math.ceil(num_train_samples / float(FLAGS.batch_size)))
-
-    
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -111,10 +110,9 @@ def train(train_dir=None, val_dir=None, mode='train'):
                                      time.time() - start_time, lr))
 
 
-
 def main(_):
     if FLAGS.mode == 'train':
-        train(FLAGS.train_dir, FLAGS.val_dir, FLAGS.mode)
+        train(FLAGS.mode)
 
 
 if __name__ == '__main__':

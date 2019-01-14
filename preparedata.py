@@ -11,13 +11,11 @@ import math
 FLAGS = utils.FLAGS
 
 
-
-
 class PrepareData(OCRDatasets):
     def __init__(self):
         OCRDatasets.__init__(self)
-        
         return
+
     def label_from_sparse_tuple(self, sparse_tuple) :
         indices = sparse_tuple[0]
         values = sparse_tuple[1]
@@ -35,6 +33,7 @@ class PrepareData(OCRDatasets):
             if dataline_idx==len(indices):
                 sequences.append(sequence)
         return sequences
+
     def sparse_tuple_from_label(self, sequences, dtype=np.int32):
         """Create a sparse representention of x.
         Args:
@@ -54,6 +53,7 @@ class PrepareData(OCRDatasets):
         shape = np.asarray([len(sequences), np.asarray(indices).max(0)[1] + 1], dtype=np.int64)
     
         return indices, values, shape
+
     def __preprocess_samples(self, samples):
         batch_inputs = []
         batch_labels = []
@@ -75,31 +75,28 @@ class PrepareData(OCRDatasets):
     
     def __generator(self, samples, batch_size):
         num_samples = len(samples)
-        while 1: # Loop forever so the generator never terminates
+        while 1:  # Loop forever so the generator never terminates
             samples = shuffle(samples)
             for offset in range(0, num_samples, batch_size):
                 batch_samples = samples[offset:offset+batch_size]
                 yield self.__preprocess_samples(batch_samples)
 
-    
-    def input_batch_generator(self, split_name, is_training=True, batch_size=32):
-        samples = self.get_samples(split_name) 
+    def input_batch_generator(self, split_name, batch_size=32, data_dir="./imgs"):
+        samples = self.get_samples(split_name, data_dir=data_dir)
         
         gen = self.__generator(samples, batch_size)
        
         return gen, len(samples)
    
-    def run(self):
+    def run(self, data_dir="./imgs"):
         batch_size = 32
         split_name = 'val'
-        generator, dataset_size = self.input_batch_generator(split_name, is_training=False, batch_size=batch_size)
+        generator, dataset_size = self.input_batch_generator(split_name, batch_size=batch_size, data_dir=data_dir)
         num_batches_per_epoch = int(math.ceil(dataset_size / float(batch_size)))
         for _ in range(num_batches_per_epoch):
             images, labels, _ = next(generator)
             print(labels)
         return
-    
-    
 
 
 if __name__ == "__main__":   

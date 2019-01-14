@@ -10,6 +10,9 @@ maxPrintLen = 100
 
 tf.app.flags.DEFINE_boolean('restore', False, 'whether to restore from the latest checkpoint')
 tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoint/', 'the checkpoint dir')
+if not os.path.exists('./checkpoint/'):
+    os.makedirs('./checkpoint/')
+
 tf.app.flags.DEFINE_float('initial_learning_rate', 1e-3, 'inital lr')
 
 tf.app.flags.DEFINE_integer('image_height', 60, 'image height')
@@ -32,9 +35,10 @@ tf.app.flags.DEFINE_float('beta2', 0.999, 'adam parameter beta2')
 tf.app.flags.DEFINE_integer('decay_steps', 10000, 'the lr decay_step for optimizer')
 tf.app.flags.DEFINE_float('momentum', 0.9, 'the momentum')
 
-tf.app.flags.DEFINE_string('train_dir', './imgs/train/', 'the train data dir')
-tf.app.flags.DEFINE_string('val_dir', './imgs/val/', 'the val data dir')
-tf.app.flags.DEFINE_string('infer_dir', './imgs/infer/', 'the infer data dir')
+tf.app.flags.DEFINE_string('data_dir', './imgs/', 'the data dir')
+# tf.app.flags.DEFINE_string('train_dir', './imgs/train/', 'the train data dir')
+# tf.app.flags.DEFINE_string('val_dir', './imgs/val/', 'the val data dir')
+# tf.app.flags.DEFINE_string('infer_dir', './imgs/infer/', 'the infer data dir')
 tf.app.flags.DEFINE_string('log_dir', './log', 'the logging dir')
 tf.app.flags.DEFINE_string('mode', 'train', 'train, val or infer')
 
@@ -162,7 +166,7 @@ def eval_expression(encoded_list):
             continue
 
     with open('./result.txt') as f:
-        for ith in xrange(len(encoded_list)):
+        for ith in range(len(encoded_list)):
             f.write(encoded_list[ith] + ' ' + eval_rs[ith] + '\n')
 
     return eval_rs
