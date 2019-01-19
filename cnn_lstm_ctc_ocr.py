@@ -90,10 +90,11 @@ class LSTMOCR(object):
         with tf.variable_scope('lstm'):
             # [batch_size, max_stepsize, num_features]
             batch_size, height, width, channels = x.get_shape().as_list()
-            x = tf.transpose(x, [0, 2, 1, 3]) 
+            x = tf.transpose(x, [0, 2, 1, 3])
             x = tf.reshape(x, [-1, width, height * channels])
             self.seq_len = tf.fill([tf.shape(x)[0]], width)
 
+            """
             # tf.nn.rnn_cell.RNNCell, tf.nn.rnn_cell.GRUCell
             cell = tf.contrib.rnn.LSTMCell(FLAGS.num_hidden, state_is_tuple=True)
             if self.mode == 'train':
@@ -127,6 +128,28 @@ class LSTMOCR(object):
             self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
             # Time major
             self.logits = tf.transpose(self.logits, (1, 0, 2))
+            """
+
+            # ---
+            outputs = x
+            outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
+
+            W = tf.get_variable(name='W',
+                                shape=[FLAGS.num_hidden, num_classes],
+                                dtype=tf.float32,
+                                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.get_variable(name='b',
+                                shape=[num_classes],
+                                dtype=tf.float32,
+                                initializer=tf.constant_initializer())
+
+            self.logits = tf.matmul(outputs, W) + b
+            # Reshaping back to the original shape
+            shape = tf.shape(x)
+            self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
+            # Time major
+            self.logits = tf.transpose(self.logits, (1, 0, 2))
+            # ---
 
 
     def _build_train_op(self):
