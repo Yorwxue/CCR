@@ -45,7 +45,7 @@ class EvaluateModel(PrepareData):
         return
 
     def eval_model(self):
-        model = cnn_lstm_ctc_ocr.LSTMOCR('eval')
+        model = cnn_lstm_ctc_ocr.LSTMOCR('eval', batch_size=FLAGS.batch_size)
         model.build_graph()
         val_feeder, num_samples = self.input_batch_generator(self.split_name,
                                                              batch_size=FLAGS.batch_size,
@@ -67,7 +67,10 @@ class EvaluateModel(PrepareData):
             print('Evaluating checkpoint_path={}, split={}, num_samples={}'.format(checkpoint_file, self.split_name,
                                                                                    num_samples))
 
-            saver.restore(sess, checkpoint_file)
+            if not isinstance(checkpoint_file, type(None)):
+                saver.restore(sess, checkpoint_file)
+            else:
+                print("checkpoint not found.")
 
             for i in range(num_batches_per_epoch):
                 inputs, labels, _ = next(val_feeder)

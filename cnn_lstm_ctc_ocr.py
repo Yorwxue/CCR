@@ -2,19 +2,22 @@ import numpy as np
 import tensorflow as tf
 import utils
 from tensorflow.python.training import moving_averages
-import ocr_mtrics
 from tensorflow.contrib import slim
+
+import ocr_mtrics
 import spatial_transformer as st
+from qrnn import QRNN
 
 FLAGS = utils.FLAGS
 num_classes = utils.num_classes
 
 
 class LSTMOCR(object):
-    def __init__(self, mode):
+    def __init__(self, mode, batch_size=None):
+        self.batch_size = batch_size
         self.mode = mode
         # image
-        self.inputs = tf.placeholder(tf.float32, [None, FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel], name="ccr_model_input")
+        self.inputs = tf.placeholder(tf.float32, [self.batch_size, FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel], name="ccr_model_input")
         # SparseTensor required by ctc_loss op
         self.labels = tf.sparse_placeholder(tf.int32)
         # 1d array of size [batch_size]
@@ -86,14 +89,14 @@ class LSTMOCR(object):
                 x = self._leaky_relu(x, 0.01)
                 x = self._max_pool(x, 2, strides[1])
 
-
         with tf.variable_scope('lstm'):
             # [batch_size, max_stepsize, num_features]
-            batch_size, height, width, channels = x.get_shape().as_list()
+            _, height, width, channels = x.get_shape().as_list()
             x = tf.transpose(x, [0, 2, 1, 3])
-            x = tf.reshape(x, [-1, width, height * channels])
+            x = tf.reshape(x, [self.batch_size, width, height * channels])
             self.seq_len = tf.fill([tf.shape(x)[0]], width)
 
+            # lstm
             """
             # tf.nn.rnn_cell.RNNCell, tf.nn.rnn_cell.GRUCell
             cell = tf.contrib.rnn.LSTMCell(FLAGS.num_hidden, state_is_tuple=True)
@@ -128,9 +131,10 @@ class LSTMOCR(object):
             self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
             # Time major
             self.logits = tf.transpose(self.logits, (1, 0, 2))
-            """
+            # """
 
-            # ---
+            # full connective
+            """
             outputs = x
             outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
 
@@ -149,8 +153,32 @@ class LSTMOCR(object):
             self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
             # Time major
             self.logits = tf.transpose(self.logits, (1, 0, 2))
-            # ---
+            # """
 
+            # qrnn
+            # """
+            qrnn = QRNN(in_size=height * channels, size=FLAGS.num_hidden, conv_size=3, name='qrnn_1')
+            outputs = qrnn.forward(x, return_sequence=True)
+
+            # Reshaping to apply the same weights over the timesteps
+            outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
+
+            W = tf.get_variable(name='W',
+                                shape=[FLAGS.num_hidden, num_classes],
+                                dtype=tf.float32,
+                                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.get_variable(name='b',
+                                shape=[num_classes],
+                                dtype=tf.float32,
+                                initializer=tf.constant_initializer())
+
+            self.logits = tf.matmul(outputs, W) + b
+            # Reshaping back to the original shape
+            shape = tf.shape(x)
+            self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
+            # Time major
+            self.logits = tf.transpose(self.logits, (1, 0, 2))
+            # """
 
     def _build_train_op(self):
         self.global_step = tf.Variable(0, trainable=False)
