@@ -40,7 +40,8 @@ class EvaluateModel(PrepareData):
         args = parser.parse_args()
 
         self.checkpoint_path = args.checkpoint_path
-        self.split_name = args.split_name
+        # self.split_name = args.split_name
+        self.split_name = "acer_ocr_eval"
 
         return
 
@@ -68,7 +69,7 @@ class EvaluateModel(PrepareData):
                                                                                    num_samples))
 
             saver.restore(sess, checkpoint_file)
-
+            true_counter, false_counter, total_counter = 0., 0., 0.
             for i in range(num_batches_per_epoch):
                 inputs, labels, _ = next(val_feeder)
                 feed = {model.inputs: inputs,
@@ -88,7 +89,12 @@ class EvaluateModel(PrepareData):
                     code = ''.join(code)
                     pred.append(code)
                 for j in range(len(gt)):
+                    total_counter += 1
                     print("%s  :  %s" % (gt[j], pred[j]))
+                    if gt[j] == pred[j]:
+                        true_counter += 1
+                    else:
+                        false_counter += 1
                 # --
                 elapsed = time.time()
                 elapsed = elapsed - start
@@ -98,6 +104,8 @@ class EvaluateModel(PrepareData):
 
             # summary_str, step = sess.run([model.merged_summay, model.global_step])
             # eval_writer.add_summary(summary_str, step)
+            print("true: %d, false: %d, total: %d" % (true_counter, false_counter, total_counter))
+            print("word accuracy: %f" % (true_counter/(true_counter+false_counter)))
             return
 
     def infer_model(self, img):
