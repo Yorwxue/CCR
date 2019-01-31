@@ -21,7 +21,7 @@ data_prep = PrepareData()
 
 
 def train(mode='train'):
-    model = cnn_lstm_ctc_ocr.LSTMOCR(mode)
+    model = cnn_lstm_ctc_ocr.LSTMOCR(mode, batch_size=FLAGS.batch_size)
     model.build_graph()
 
     print('loading train data, please wait---------------------')
@@ -29,7 +29,7 @@ def train(mode='train'):
     print('get image: ', num_train_samples)
 
     print('loading validation data, please wait---------------------')
-    val_feeder, num_val_samples = data_prep.input_batch_generator('val', batch_size=FLAGS.batch_size * 2, data_dir=FLAGS.data_dir)
+    val_feeder, num_val_samples = data_prep.input_batch_generator('val', batch_size=FLAGS.batch_size, data_dir=FLAGS.data_dir)
     print('get image: ', num_val_samples)
    
     num_batches_per_epoch = int(math.ceil(num_train_samples / float(FLAGS.batch_size)))
@@ -61,9 +61,14 @@ def train(mode='train'):
                 feed = {model.inputs: batch_inputs,
                         model.labels: batch_labels}
 
+                # Note: qrnn need to know the batch size
+                if len(batch_inputs) != FLAGS.batch_size:
+                    print("rest %d data, drop and continue the next batch" % (len(batch_inputs)))
+                    continue
+
                 # if summary is needed
                 # batch_cost,step,train_summary,_ = sess.run([cost,global_step,merged_summay,optimizer],feed)
-                
+
                 #print("----------------------------")
                 #print(sess.run([stn_output], feed))
                 #print("----------------------------")
@@ -87,8 +92,12 @@ def train(mode='train'):
                 # train_err += the_err * FLAGS.batch_size
                 # do validation
                 if step % FLAGS.validation_steps == 0:
-                    
-                    val_inputs, val_labels, ori_labels = next(val_feeder)    
+                    val_inputs, val_labels, ori_labels = next(val_feeder)
+
+                    while len(val_inputs) != FLAGS.batch_size:
+                        print("rest %d validation data, drop and continue the next batch" % (len(val_inputs)))
+                        val_inputs, val_labels, ori_labels = next(val_feeder)
+
                     val_feed = {model.inputs: val_inputs,
                                 model.labels: val_labels}
 

@@ -134,7 +134,7 @@ class LSTMOCR(object):
             # """
 
             # full connective
-            """
+            # """
             outputs = x
             outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
 
@@ -156,7 +156,7 @@ class LSTMOCR(object):
             # """
 
             # qrnn
-            # """
+            """
             qrnn = QRNN(in_size=height * channels, size=FLAGS.num_hidden, conv_size=3, name='qrnn_1')
             outputs = qrnn.forward(x, return_sequence=True)
 
