@@ -134,7 +134,7 @@ class LSTMOCR(object):
             # """
 
             # full connective
-            # """
+            """
             outputs = x
             outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
 
@@ -156,9 +156,12 @@ class LSTMOCR(object):
             # """
 
             # qrnn
-            """
+            # """
             qrnn = QRNN(in_size=height * channels, size=FLAGS.num_hidden, conv_size=3, name='qrnn_1')
-            outputs = qrnn.forward(x, return_sequence=True)
+            x = qrnn.forward(x, return_sequence=True)
+
+            qrnn2 = QRNN(in_size=FLAGS.num_hidden, size=FLAGS.num_hidden, conv_size=3, name='qrnn_2')
+            outputs = qrnn2.forward(x, return_sequence=True)
 
             # Reshaping to apply the same weights over the timesteps
             outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
@@ -194,19 +197,33 @@ class LSTMOCR(object):
                                                    FLAGS.decay_rate,
                                                    staircase=True)
 
-        # self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.lrn_rate,
-        #                                            momentum=FLAGS.momentum).minimize(self.cost,
-        #                                                                              global_step=self.global_step)
-        # self.optimizer = tf.train.MomentumOptimizer(learning_rate=self.lrn_rate,
-        #                                             momentum=FLAGS.momentum,
-        #                                             use_nesterov=True).minimize(self.cost,
-        #                                                                         global_step=self.global_step)
+        vars_0 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='cnn') + tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='lstm')
+        vars_1 = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='stn')
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.initial_learning_rate,
+        # pretrain CNN+LSTM. fix the weights of STN to identity mapping
+        self.optimizer_0 = tf.train.AdamOptimizer(learning_rate=FLAGS.initial_learning_rate,
                                                 beta1=FLAGS.beta1,
                                                 beta2=FLAGS.beta2).minimize(self.loss,
-                                                                            global_step=self.global_step)
-        train_ops = [self.optimizer] + self._extra_train_ops
+                                                                            global_step=self.global_step,
+                                                                            var_list=vars_0)
+        train_ops_0 = [self.optimizer_0] + self._extra_train_ops
+        self.train_op_0 = tf.group(*train_ops_0)
+
+        # set lr of  CNN+LSTM to global-lr
+        self.optimizer_1 = tf.train.AdamOptimizer(learning_rate=FLAGS.initial_learning_rate,
+                                                beta1=FLAGS.beta1,
+                                                beta2=FLAGS.beta2).minimize(self.loss,
+                                                                            global_step=self.global_step,
+                                                                            var_list=vars_0)
+        # set lr of STN to global+lr * 0.1
+        self.optimizer_2 = tf.train.AdamOptimizer(learning_rate=FLAGS.initial_learning_rate * 0.01,
+                                                beta1=FLAGS.beta1,
+                                                beta2=FLAGS.beta2).minimize(self.loss,
+                                                                            global_step=self.global_step,
+                                                                            var_list=vars_1)
+
+
+        train_ops = [self.optimizer_1] + [self.optimizer_2] + self._extra_train_ops
         self.train_op = tf.group(*train_ops)
 
         # Option 2: tf.contrib.ctc.ctc_beam_search_decoder
@@ -301,5 +318,6 @@ class LSTMOCR(object):
         flat_loc = tf.contrib.layers.flatten(pool2_loc)
         fc1_loc = tf.contrib.layers.fully_connected(flat_loc, 256, activation_fn=tf.nn.relu, scope='fc1_loc')
         fc2_loc = tf.contrib.layers.fully_connected(fc1_loc, 6, activation_fn=None, weights_initializer=tf.zeros_initializer(), biases_initializer=tf.constant_initializer(identity), scope='fc2_loc')
+        fc2_loc = tf.Print(fc2_loc, [fc2_loc], "STN", summarize=6 )
         stn = st.transformer(x, fc2_loc, out_size=(FLAGS.image_height, FLAGS.image_width))
         return stn

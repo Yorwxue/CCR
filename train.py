@@ -31,12 +31,12 @@ def train(mode='train'):
     print('loading validation data, please wait---------------------')
     val_feeder, num_val_samples = data_prep.input_batch_generator('val', batch_size=FLAGS.batch_size, data_dir=FLAGS.data_dir)
     print('get image: ', num_val_samples)
-   
+
     num_batches_per_epoch = int(math.ceil(num_train_samples / float(FLAGS.batch_size)))
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-
+        accuracy = 0.
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
         train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph)
         if FLAGS.restore:
@@ -74,9 +74,14 @@ def train(mode='train'):
                 #print("----------------------------")
                 #exit()
 
-                summary_str, batch_cost, step, _ = \
-                    sess.run([model.merged_summay, model.cost, model.global_step,
-                              model.train_op], feed)
+                if accuracy < 0.3:
+                    summary_str, batch_cost, step, _ = \
+                        sess.run([model.merged_summay, model.cost, model.global_step,
+                                  model.train_op_0], feed)
+                else:
+                    summary_str, batch_cost, step, _ = \
+                        sess.run([model.merged_summay, model.cost, model.global_step,
+                                  model.train_op], feed)
                 # calculate the cost
 
                 train_writer.add_summary(summary_str, step)
