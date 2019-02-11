@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from scipy import misc
+from tensorflow.python import pywrap_tensorflow
 
 import cnn_lstm_ctc_ocr
 import utils
@@ -44,6 +45,51 @@ class EvaluateModel(PrepareData):
 
         return
 
+    def load_model(self, sess):
+        # method 1
+        """
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
+        # eval_writer = tf.summary.FileWriter("{}/{}".format(log_dir, self.split_name), sess.graph)
+
+        if tf.gfile.IsDirectory(self.checkpoint_path):
+            checkpoint_file = tf.train.latest_checkpoint(self.checkpoint_path)
+        else:
+            checkpoint_file = self.checkpoint_path
+
+        if not isinstance(checkpoint_file, type(None)):
+            saver.restore(sess, checkpoint_file)
+        else:
+            print("checkpoint not found.")
+            exit()
+        """
+
+        # method 2
+        ckpt = tf.train.get_checkpoint_state(path)
+        if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
+            ckpt = tf.train.get_checkpoint_state(self.checkpoint_path)
+            graph = tf.get_default_graph()
+            reader = pywrap_tensorflow.NewCheckpointReader(ckpt.model_checkpoint_path)
+            saved_shapes = reader.get_variable_to_shape_map()
+
+            # show variables
+            # for key in sorted(saved_shapes):
+            #     print(key)
+
+            var_names = sorted([(var.name, var.name.split(':')[0]) for var in tf.global_variables()
+                                if var.name.split(':')[0] in saved_shapes])
+            restore_vars = []
+            for var_name, saved_var_name in var_names:
+                curr_var = graph.get_tensor_by_name(var_name)
+                var_shape = curr_var.get_shape().as_list()
+                if var_shape == saved_shapes[saved_var_name]:
+                    restore_vars.append(curr_var)
+
+            restorer = tf.train.Saver(restore_vars, max_to_keep=5)
+            restorer.restore(sess, ckpt.model_checkpoint_path)
+        else:
+            print("checkpoint not found.")
+            exit()
+
     def eval_model(self):
         model = cnn_lstm_ctc_ocr.LSTMOCR('eval', batch_size=FLAGS.batch_size)
         model.build_graph()
@@ -57,20 +103,22 @@ class EvaluateModel(PrepareData):
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
 
-            saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
-            # eval_writer = tf.summary.FileWriter("{}/{}".format(log_dir, self.split_name), sess.graph)
-
-            if tf.gfile.IsDirectory(self.checkpoint_path):
-                checkpoint_file = tf.train.latest_checkpoint(self.checkpoint_path)
-            else:
-                checkpoint_file = self.checkpoint_path
-            print('Evaluating checkpoint_path={}, split={}, num_samples={}'.format(checkpoint_file, self.split_name,
-                                                                                   num_samples))
-
-            if not isinstance(checkpoint_file, type(None)):
-                saver.restore(sess, checkpoint_file)
-            else:
-                print("checkpoint not found.")
+            # saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
+            # # eval_writer = tf.summary.FileWriter("{}/{}".format(log_dir, self.split_name), sess.graph)
+            #
+            # if tf.gfile.IsDirectory(self.checkpoint_path):
+            #     checkpoint_file = tf.train.latest_checkpoint(self.checkpoint_path)
+            # else:
+            #     checkpoint_file = self.checkpoint_path
+            #
+            # print('Evaluating checkpoint_path={}, split={}, num_samples={}'.format(checkpoint_file, self.split_name,
+            #                                                                        num_samples))
+            #
+            # if not isinstance(checkpoint_file, type(None)):
+            #     saver.restore(sess, checkpoint_file)
+            # else:
+            #     print("checkpoint not found.")
+            self.load_model(sess)
 
             for i in range(num_batches_per_epoch):
                 inputs, labels, _ = next(val_feeder)
@@ -103,33 +151,36 @@ class EvaluateModel(PrepareData):
             # eval_writer.add_summary(summary_str, step)
             return
 
-    def infer_model(self, img):
+    def infer_model(self, imgs):
 
         # image processed
-        img = img.astype(np.float32) / 255.
-        img = cv2.resize(img, (FLAGS.image_width, FLAGS.image_height))
-        img = np.reshape(img, [FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel])
+        for img_idx in range(len(imgs)):
+            imgs[img_idx] = imgs[img_idx].astype(np.float32) / 255.
+            imgs[img_idx] = cv2.resize(imgs[img_idx], (FLAGS.image_width, FLAGS.image_height))
+            imgs[img_idx] = np.reshape(imgs[img_idx], [FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel])
 
         # model
-        model = cnn_lstm_ctc_ocr.LSTMOCR('eval')
+        model = cnn_lstm_ctc_ocr.LSTMOCR('eval', batch_size=len(imgs))
         model.build_graph()
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
 
-            saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
+            # saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
+            #
+            # if tf.gfile.IsDirectory(self.checkpoint_path):
+            #     checkpoint_file = tf.train.latest_checkpoint(self.checkpoint_path)
+            # else:
+            #     checkpoint_file = self.checkpoint_path
+            # print('Evaluating checkpoint_path={}'.format(checkpoint_file))
+            #
+            # saver.restore(sess, checkpoint_file)
+            # # restore model finish
+            self.load_model(sess)
 
-            if tf.gfile.IsDirectory(self.checkpoint_path):
-                checkpoint_file = tf.train.latest_checkpoint(self.checkpoint_path)
-            else:
-                checkpoint_file = self.checkpoint_path
-            print('Evaluating checkpoint_path={}'.format(checkpoint_file))
-
-            saver.restore(sess, checkpoint_file)
-            # restore model finish
-
-            inputs = [img]
+            # inputs = [img]
+            inputs = imgs
             feed = {model.inputs: inputs}
             # start = time.time()
             predictions = sess.run(model.dense_decoded, feed)
@@ -147,27 +198,27 @@ class EvaluateModel(PrepareData):
             # print('Spent {:.5f} seconds.'.format(elapsed))
             return pred[-1]
 
-    def marge_infer_model(self, sess, model, img):
-        # need to load model before call this function
-
-        # image processed
-        img = img.astype(np.float32) / 255.
-        img = cv2.resize(img, (FLAGS.image_width, FLAGS.image_height))
-        img = np.reshape(img, [FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel])
-
-        # start predict
-        inputs = [img]
-        feed = {model.inputs: inputs}
-        predictions = sess.run(model.dense_decoded, feed)
-
-        pred = list()
-
-        for j in range(len(predictions)):
-            code = [utils.decode_maps[c] if c != -1 else '' for c in predictions[j]]
-            code = ''.join(code)
-            pred.append(code)
-
-        return pred[-1]
+    # def marge_infer_model(self, sess, model, img):
+    #     # need to load model before call this function
+    #
+    #     # image processed
+    #     img = img.astype(np.float32) / 255.
+    #     img = cv2.resize(img, (FLAGS.image_width, FLAGS.image_height))
+    #     img = np.reshape(img, [FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel])
+    #
+    #     # start predict
+    #     inputs = [img]
+    #     feed = {model.inputs: inputs}
+    #     predictions = sess.run(model.dense_decoded, feed)
+    #
+    #     pred = list()
+    #
+    #     for j in range(len(predictions)):
+    #         code = [utils.decode_maps[c] if c != -1 else '' for c in predictions[j]]
+    #         code = ''.join(code)
+    #         pred.append(code)
+    #
+    #     return pred[-1]
 
 
 if __name__ == "__main__":

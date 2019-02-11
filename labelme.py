@@ -48,7 +48,7 @@ if __name__ == '__main__':
     boxes_obj = boxes_class()
 
     ocd = OCD("/home/c11tch/workspace/PycharmProjects/JC_Demo/ocr_module/EAST/pretrained_model/east_mixed_149482/")
-    # OCD = OCD("/data2/relabelled/east_icdar2015_resnet_v1_50_rbox")
+    # ocd = OCD("/data2/relabelled/east_icdar2015_resnet_v1_50_rbox")
     ocr = OCR()
 
     image_path = "/home/c11tch/Pictures/ocd_test_img/aPICT0034.JPG"
@@ -57,15 +57,12 @@ if __name__ == '__main__':
     # ocd
     image_list, masked_image, boxes = ocd.detection(image)
 
-    # cv2 to pil
-    cv2_im = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    pil_im = Image.fromarray(cv2_im)
-    img = pil_im.convert("RGB")
-
     # ocr
-    result_list = ocr.recognize(img, boxes)
+    result_list = ocr.recognize(image_list)
+    for i in result_list:
+        print(i)
 
     # labelme
-    boxes_obj.get_boxes(boxes)
-    boxes_obj.boxes_to_labelme(image_path, result_list)
+    # boxes_obj.get_boxes(boxes)
+    # boxes_obj.boxes_to_labelme(image_path, result_list)
     pass
