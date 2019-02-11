@@ -64,7 +64,7 @@ class EvaluateModel(PrepareData):
         """
 
         # method 2
-        ckpt = tf.train.get_checkpoint_state(path)
+        ckpt = tf.train.get_checkpoint_state(self.checkpoint_path)
         if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
             ckpt = tf.train.get_checkpoint_state(self.checkpoint_path)
             graph = tf.get_default_graph()
@@ -196,7 +196,7 @@ class EvaluateModel(PrepareData):
             # elapsed = time.time()
             # elapsed = elapsed - start
             # print('Spent {:.5f} seconds.'.format(elapsed))
-            return pred[-1]
+            return pred
 
     # def marge_infer_model(self, sess, model, img):
     #     # need to load model before call this function
