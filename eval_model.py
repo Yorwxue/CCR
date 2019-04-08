@@ -99,6 +99,8 @@ class EvaluateModel(PrepareData):
 
         num_batches_per_epoch = int(math.ceil(num_samples / float(FLAGS.batch_size)))
 
+        true = 0.
+        false = 0.
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
@@ -122,6 +124,10 @@ class EvaluateModel(PrepareData):
 
             for i in range(num_batches_per_epoch):
                 inputs, labels, _ = next(val_feeder)
+
+                if len(inputs) < FLAGS.batch_size:
+                    break
+
                 feed = {model.inputs: inputs,
                         model.labels: labels}
                 start = time.time()
@@ -140,16 +146,21 @@ class EvaluateModel(PrepareData):
                     pred.append(code)
                 for j in range(len(gt)):
                     print("%s  :  %s" % (gt[j], pred[j]))
+                    if gt[j] == pred[j]:
+                        true += 1
+                    else:
+                        false += 1
                 # --
                 elapsed = time.time()
                 elapsed = elapsed - start
-                print('{}/{}, {:.5f} seconds.'.format(i, num_batches_per_epoch, elapsed))
+                print('{}/{}, {:.5f} seconds.'.format(i+1, num_batches_per_epoch, elapsed))
 
                 # print the decode result
 
             # summary_str, step = sess.run([model.merged_summay, model.global_step])
             # eval_writer.add_summary(summary_str, step)
-            return
+            print("precision: %f" % (true / (true + false)))
+
 
     def infer_model(self, imgs):
 
