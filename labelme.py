@@ -2,9 +2,13 @@ import numpy as np
 import cv2
 from PIL import Image
 import json
+import os
+import utils
+from polyCrop import polyCrop, ratioImputation
 
 from eval import OCD, OCR
 
+FLAGS = utils.FLAGS
 
 class boxes_class(object):
     def __init__(self):
@@ -74,18 +78,40 @@ if __name__ == '__main__':
 
     # img <- boxes <- labelme
     # """
-    with open("/home/c11tch/Pictures/ocd_test_img/aPICT0034.json") as f:
-        json_data = json.load(f)
+    img_dir = os.path.abspath(os.path.join(FLAGS.data_dir, "labelme_img"))
+    save_dir = os.path.abspath(os.path.join(FLAGS.data_dir, "eval"))
+    file_list = os.listdir(img_dir)
+    for filename in file_list:
+        if ".json" not in filename:
+            continue
+        with open(os.path.join(img_dir, filename)) as f:
+            json_data = json.load(f)
 
-    data = json_data['shapes']
-    boxes = list()
-    texts = list()
-    for box in data:
-        label = box['label']
-        points = box['points']
-        texts.append(label)
-        boxes.append(points)
+        data = json_data['shapes']
+        boxes = list()
+        texts = list()
+        for box in data:
+            label = box['label']
+            points = box['points']
+            texts.append(label)
+            boxes.append(points)
+            
+            # save cropped image
+            image_path = os.path.join(img_dir, filename.replace(".json", ".jpg"))
+            image = cv2.imread(image_path)
+            if isinstance(image, type(None)):
+                print(image_path)
+                continue
+            points = np.asarray(points)
+            box_wmin = (np.min(points[:, 0]))
+            box_wmax = (np.max(points[:, 0]))
+            box_hmin = (np.min(points[:, 1]))
+            box_hmax = (np.max(points[:, 1]))
+            point_rect = [[box_wmin, box_hmin], [box_wmax, box_hmin], [box_wmax, box_hmax], [box_wmin, box_hmax]]
+            display_img, masked_image = polyCrop(image, rect_box=point_rect, poly_box=points)
+            ratio_img = ratioImputation(masked_image, target_ration=(60, 180))
+            cv2.imwrite(os.path.join(save_dir, "%d_%s.jpg" % (len(os.listdir(save_dir)), label)), ratio_img)
 
-    boxes_obj.get_boxes(boxes, texts)
+        boxes_obj.get_boxes(boxes, texts)
     # """
     pass

@@ -8,7 +8,7 @@ class OCRDatasets(object):
 
     def get_samples(self, split_name, data_dir="./imgs"):
         # sample_pattern = './imgs/{}/*.png'.format(split_name)
-        sample_pattern = os.path.join(data_dir, split_name, "*.png")
+        sample_pattern = os.path.join(data_dir, split_name, "*.jpg")
         samples = glob.glob(sample_pattern)
        
         return samples
