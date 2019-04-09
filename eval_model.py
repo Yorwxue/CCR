@@ -68,7 +68,8 @@ class EvaluateModel(PrepareData):
                                                                                    num_samples))
 
             saver.restore(sess, checkpoint_file)
-
+            true = 0.
+            false = 0.
             for i in range(num_batches_per_epoch):
                 inputs, labels, _ = next(val_feeder)
                 feed = {model.inputs: inputs,
@@ -89,12 +90,16 @@ class EvaluateModel(PrepareData):
                     pred.append(code)
                 for j in range(len(gt)):
                     print("%s  :  %s" % (gt[j], pred[j]))
+                    if gt[j] == pred[j]:
+                        true += 1
+                    else:
+                        false += 1
                 # --
                 elapsed = time.time()
                 elapsed = elapsed - start
                 print('{}/{}, {:.5f} seconds.'.format(i, num_batches_per_epoch, elapsed))
-
                 # print the decode result
+            print("accuracy: %f" % (true/(true+false)))
 
             # summary_str, step = sess.run([model.merged_summay, model.global_step])
             # eval_writer.add_summary(summary_str, step)

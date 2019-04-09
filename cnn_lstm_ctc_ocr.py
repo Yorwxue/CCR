@@ -94,7 +94,7 @@ class LSTMOCR(object):
             x = tf.reshape(x, [-1, width, height * channels])
             self.seq_len = tf.fill([tf.shape(x)[0]], width)
 
-            """
+            # """
             # tf.nn.rnn_cell.RNNCell, tf.nn.rnn_cell.GRUCell
             cell = tf.contrib.rnn.LSTMCell(FLAGS.num_hidden, state_is_tuple=True)
             if self.mode == 'train':
@@ -128,9 +128,10 @@ class LSTMOCR(object):
             self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
             # Time major
             self.logits = tf.transpose(self.logits, (1, 0, 2))
-            """
+            # """
 
-            # ---
+            # fc
+            """
             outputs = x
             outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
 
@@ -149,7 +150,7 @@ class LSTMOCR(object):
             self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
             # Time major
             self.logits = tf.transpose(self.logits, (1, 0, 2))
-            # ---
+            # """
 
 
     def _build_train_op(self):
