@@ -6,5 +6,7 @@ __pycache__/
 venv/
 redis
 
-# data
+# model & data
 dataset/
+CCR/checkpoint/
+tf_serving/export_model/ccr

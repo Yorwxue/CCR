@@ -170,3 +170,12 @@ def eval_expression(encoded_list):
             f.write(encoded_list[ith] + ' ' + eval_rs[ith] + '\n')
 
     return eval_rs
+
+
+def ccr_decode(predictions):
+    pred = list()
+    for j in range(len(predictions)):
+        code = [decode_maps[c] if c != -1 else '' for c in predictions[j]]
+        code = ''.join(code)
+        pred.append(code)
+    return pred[-1]

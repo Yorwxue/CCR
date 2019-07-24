@@ -30,14 +30,14 @@ class EvaluateModel(PrepareData):
         PrepareData.__init__(self)
         return
 
-    def parse_param(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-s', '--split_name', help='which split of dataset to use', default="eval")
-        parser.add_argument('-c', '--checkpoint_path', help='which checkpoint to use', default="./checkpoint/")
-        args = parser.parse_args()
+    def parse_param(self, checkpoint_path, split_name="eval"):
+        # parser = argparse.ArgumentParser()
+        # parser.add_argument('-s', '--split_name', help='which split of dataset to use', default="eval")
+        # parser.add_argument('-c', '--checkpoint_path', help='which checkpoint to use', default="./checkpoint/")
+        # args = parser.parse_args()
 
-        self.checkpoint_path = args.checkpoint_path
-        self.split_name = args.split_name
+        self.checkpoint_path = checkpoint_path
+        self.split_name = split_name
 
         return
 
@@ -201,6 +201,6 @@ if __name__ == "__main__":
             # print("ccr CCR spent %f sec" % (time.time() - start_time))
             # print(txt_ocr)
     """
-    cnn_lstm_ctc = EvaluateModel()
-    cnn_lstm_ctc.parse_param()
-    cnn_lstm_ctc.eval_model()
+    # cnn_lstm_ctc = EvaluateModel()
+    # cnn_lstm_ctc.parse_param("./checkpoint/")
+    # cnn_lstm_ctc.eval_model()

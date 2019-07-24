@@ -1,0 +1,16 @@
+version: '3'
+services:
+
+  ccr_service:
+    build:
+      context: ./
+      dockerfile: ./Docker/CCR_Dockerfile
+    ports:
+      - "8500:8500"
+      - "8501:8501"
+    volumes:
+      - ./tf_serving/export_model/:/workspace/tf_serving/export_model
+      - /etc/localtime:/etc/localtime:ro
+    command: ["tensorflow_model_server", "--rest_api_port=8501", "--model_config_file=/workspace/tf_serving/export_model/models.config", "--enable_batching=true", "--batching_parameters_file=/workspace/tf_serving/export_model/batching.config", "--per_process_gpu_memory_fraction=0.8"]
+    restart: on-failure
+

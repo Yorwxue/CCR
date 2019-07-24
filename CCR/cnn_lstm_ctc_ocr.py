@@ -1,18 +1,22 @@
 import numpy as np
 import tensorflow as tf
+import CCR.utils as utils
 from tensorflow.python.training import moving_averages
-from CCR import ocr_mtrics, spatial_transformer as st, utils
+import CCR.ocr_mtrics as ocr_mtrics
 from tensorflow.contrib import slim
+import CCR.spatial_transformer as st
 
 FLAGS = utils.FLAGS
 num_classes = utils.num_classes
 
 
 class LSTMOCR(object):
-    def __init__(self, mode):
+    def __init__(self, mode,
+                 inputs=tf.placeholder(tf.float32, [None, FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel],
+                                       name="ccr_model_input")):
         self.mode = mode
         # image
-        self.inputs = tf.placeholder(tf.float32, [None, FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel], name="ccr_model_input")
+        self.inputs = inputs
         # SparseTensor required by ctc_loss op
         self.labels = tf.sparse_placeholder(tf.int32)
         # 1d array of size [batch_size]
@@ -57,7 +61,6 @@ class LSTMOCR(object):
 
         with tf.variable_scope('stn-1'):
             x = self._spatial_transform(self.inputs)
-#            x = self._batch_norm('bn0', x)
 
         with tf.variable_scope('cnn'):
             with tf.variable_scope('unit-1'):
@@ -72,6 +75,9 @@ class LSTMOCR(object):
                 x = self._leaky_relu(x, 0.01)
                 x = self._max_pool(x, 2, strides[1])
 
+            #            with tf.variable_scope('stn-2'):
+            #                x = self._spatial_transform(x)
+
             with tf.variable_scope('unit-3'):
                 x = self._conv2d(x, 'cnn-3', (3, 5), filters[1], filters[2], strides[0])
                 x = self._batch_norm('bn3', x)
@@ -84,6 +90,8 @@ class LSTMOCR(object):
                 x = self._leaky_relu(x, 0.01)
                 x = self._max_pool(x, 2, strides[1])
 
+        #        with tf.variable_scope('stn-2'):
+        #            x = self._spatial_transform(x)
 
         with tf.variable_scope('lstm'):
             # [batch_size, max_stepsize, num_features]
@@ -92,7 +100,6 @@ class LSTMOCR(object):
             x = tf.reshape(x, [-1, width, height * channels])
             self.seq_len = tf.fill([tf.shape(x)[0]], width)
 
-            # """
             # tf.nn.rnn_cell.RNNCell, tf.nn.rnn_cell.GRUCell
             cell = tf.contrib.rnn.LSTMCell(FLAGS.num_hidden, state_is_tuple=True)
             if self.mode == 'train':
@@ -126,59 +133,36 @@ class LSTMOCR(object):
             self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
             # Time major
             self.logits = tf.transpose(self.logits, (1, 0, 2))
-            # """
-
-            # fc
-            """
-            outputs = x
-            outputs = tf.reshape(outputs, [-1, FLAGS.num_hidden])
-
-            W = tf.get_variable(name='W',
-                                shape=[FLAGS.num_hidden, num_classes],
-                                dtype=tf.float32,
-                                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.get_variable(name='b',
-                                shape=[num_classes],
-                                dtype=tf.float32,
-                                initializer=tf.constant_initializer())
-
-            self.logits = tf.matmul(outputs, W) + b
-            # Reshaping back to the original shape
-            shape = tf.shape(x)
-            self.logits = tf.reshape(self.logits, [shape[0], -1, num_classes])
-            # Time major
-            self.logits = tf.transpose(self.logits, (1, 0, 2))
-            # """
-
 
     def _build_train_op(self):
-        self.global_step = tf.Variable(0, trainable=False)
+        if self.mode == 'train':
+            self.global_step = tf.Variable(0, trainable=False)
 
-        self.loss = tf.nn.ctc_loss(labels=self.labels,
-                                   inputs=self.logits,
-                                   sequence_length=self.seq_len)
-        self.cost = tf.reduce_mean(self.loss)
+            self.loss = tf.nn.ctc_loss(labels=self.labels,
+                                       inputs=self.logits,
+                                       sequence_length=self.seq_len)
+            self.cost = tf.reduce_mean(self.loss)
 
-        self.lrn_rate = tf.train.exponential_decay(FLAGS.initial_learning_rate,
-                                                   self.global_step,
-                                                   FLAGS.decay_steps,
-                                                   FLAGS.decay_rate,
-                                                   staircase=True)
+            self.lrn_rate = tf.train.exponential_decay(FLAGS.initial_learning_rate,
+                                                       self.global_step,
+                                                       FLAGS.decay_steps,
+                                                       FLAGS.decay_rate,
+                                                       staircase=True)
 
-        # self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.lrn_rate,
-        #                                            momentum=FLAGS.momentum).minimize(self.cost,
-        #                                                                              global_step=self.global_step)
-        # self.optimizer = tf.train.MomentumOptimizer(learning_rate=self.lrn_rate,
-        #                                             momentum=FLAGS.momentum,
-        #                                             use_nesterov=True).minimize(self.cost,
-        #                                                                         global_step=self.global_step)
+            # self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.lrn_rate,
+            #                                            momentum=FLAGS.momentum).minimize(self.cost,
+            #                                                                              global_step=self.global_step)
+            # self.optimizer = tf.train.MomentumOptimizer(learning_rate=self.lrn_rate,
+            #                                             momentum=FLAGS.momentum,
+            #                                             use_nesterov=True).minimize(self.cost,
+            #                                                                         global_step=self.global_step)
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.initial_learning_rate,
-                                                beta1=FLAGS.beta1,
-                                                beta2=FLAGS.beta2).minimize(self.loss,
-                                                                            global_step=self.global_step)
-        train_ops = [self.optimizer] + self._extra_train_ops
-        self.train_op = tf.group(*train_ops)
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.initial_learning_rate,
+                                                    beta1=FLAGS.beta1,
+                                                    beta2=FLAGS.beta2).minimize(self.loss,
+                                                                                global_step=self.global_step)
+            train_ops = [self.optimizer] + self._extra_train_ops
+            self.train_op = tf.group(*train_ops)
 
         # Option 2: tf.contrib.ctc.ctc_beam_search_decoder
         # (it's slower but you'll get better results)
@@ -262,8 +246,9 @@ class LSTMOCR(object):
 
     def _spatial_transform(self, x):
         ## x shape: [N, W, H, C=1]
-        identity = np.array([[1., 0., 0.],[0., 1., 0.]])
+        identity = np.array([[1., 0., 0.], [0., 1., 0.]])
         identity = identity.flatten()
+        # theta = tf.Variable(dtype=np.float32, initial_value=identity)
 
         conv1_loc = tf.layers.conv2d(x, 16, 3, padding='same', activation=tf.nn.relu, name='conv1_loc')
         pool1_loc = tf.layers.max_pooling2d(conv1_loc, 2, 2)
@@ -271,6 +256,12 @@ class LSTMOCR(object):
         pool2_loc = tf.layers.max_pooling2d(conv2_loc, 2, 2)
         flat_loc = tf.contrib.layers.flatten(pool2_loc)
         fc1_loc = tf.contrib.layers.fully_connected(flat_loc, 256, activation_fn=tf.nn.relu, scope='fc1_loc')
-        fc2_loc = tf.contrib.layers.fully_connected(fc1_loc, 6, activation_fn=None, weights_initializer=tf.zeros_initializer(), biases_initializer=tf.constant_initializer(identity), scope='fc2_loc')
+        # ac1_loc = tf.nn.tanh(fc1_loc)
+        fc2_loc = tf.contrib.layers.fully_connected(fc1_loc, 6, activation_fn=None,
+                                                    weights_initializer=tf.zeros_initializer(),
+                                                    biases_initializer=tf.constant_initializer(identity),
+                                                    scope='fc2_loc')
+        # ac2_loc = tf.nn.tanh(fc2_loc)
         stn = st.transformer(x, fc2_loc, out_size=(FLAGS.image_height, FLAGS.image_width))
+        # stn = st.transformer(x, ac2_loc, out_size=(FLAGS.image_height, FLAGS.image_width))
         return stn

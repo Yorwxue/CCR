@@ -15,8 +15,8 @@ def ccr_decode(predictions):
         code = [utils.decode_maps[c] if c != -1 else '' for c in predictions[j]]
         code = ''.join(code)
         pred.append(code)
-        logger.info("CCR decode: %s" % code)
-    return pred[-1]
+        # logger.info("CCR decode: %s" % code)
+    return pred
 
 
 def image_encode(image):
