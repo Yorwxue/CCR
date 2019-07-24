@@ -14,7 +14,8 @@
 # ==============================================================================
 import tensorflow as tf
 
-import utils
+from CCR import utils
+
 FLAGS = utils.FLAGS
 
 def transformer(U, theta, out_size, name='SpatialTransformer', **kwargs):

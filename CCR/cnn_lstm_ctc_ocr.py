@@ -1,10 +1,8 @@
 import numpy as np
 import tensorflow as tf
-import utils
 from tensorflow.python.training import moving_averages
-import ocr_mtrics
+from CCR import ocr_mtrics, spatial_transformer as st, utils
 from tensorflow.contrib import slim
-import spatial_transformer as st
 
 FLAGS = utils.FLAGS
 num_classes = utils.num_classes

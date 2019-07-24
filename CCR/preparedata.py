@@ -1,11 +1,8 @@
-import tensorflow as tf
-import matplotlib.pyplot as plt
-import tensorflow.contrib.slim as slim
 import numpy as np
 from sklearn.utils import shuffle
-from ocr_datasets import OCRDatasets
+from CCR.ocr_datasets import OCRDatasets
 import cv2
-import utils
+from CCR import utils
 import math
 
 FLAGS = utils.FLAGS

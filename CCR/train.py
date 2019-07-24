@@ -3,14 +3,10 @@ import logging
 import os
 import time
 
-import cv2
-import numpy as np
 import tensorflow as tf
 
-import cnn_lstm_ctc_ocr
-import utils
-import helper
-from preparedata import PrepareData
+from CCR import utils, cnn_lstm_ctc_ocr
+from CCR.preparedata import PrepareData
 FLAGS = utils.FLAGS
 import math
 
@@ -81,7 +77,7 @@ def train(mode='train'):
                     if not os.path.isdir(FLAGS.checkpoint_dir):
                         os.mkdir(FLAGS.checkpoint_dir)
                     logger.info('save the checkpoint of{0}', format(step))
-                    saver.save(sess, os.path.join(FLAGS.checkpoint_dir, 'ocr-model'),
+                    saver.save(sess, os.path.join(FLAGS.checkpoint_dir, 'ocr-CCR'),
                                global_step=step)
 
                 # train_err += the_err * FLAGS.batch_size
@@ -98,7 +94,7 @@ def train(mode='train'):
 
                     # print the decode result
                     accuracy = utils.accuracy_calculation(ori_labels, dense_decoded,
-                                                     ignore_value=-1, isPrint=True)
+                                                          ignore_value=-1, isPrint=True)
 
                     # train_err /= num_train_samples
                     now = datetime.datetime.now()

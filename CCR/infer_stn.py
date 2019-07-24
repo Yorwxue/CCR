@@ -1,32 +1,17 @@
-import datetime
-import logging
 import os
 import time
+
+import matplotlib.pyplot as plt
 import cv2
 import numpy as np
 import tensorflow as tf
-from scipy import misc
 
-import cnn_lstm_ctc_ocr
-import utils
-from preparedata import PrepareData
-
-import math
-import argparse
+from CCR import utils, cnn_lstm_ctc_ocr
+from .preparedata import PrepareData
 
 FLAGS = utils.FLAGS
-
-# log_dir = './log/infers'
-logger = logging.getLogger('Traing for OCR using CNN+LSTM+CTC')
-logger.setLevel(logging.INFO)
-
-
-def image_reader(img_path):
-    input_image = misc.imread(img_path)
-    if input_image.shape[2] > 3:
-        input_image = input_image[:, :, :3]
-    return input_image
-
+import math
+import argparse
 
 class EvaluateModel(PrepareData):
     def __init__(self):
@@ -47,9 +32,8 @@ class EvaluateModel(PrepareData):
     def eval_model(self):
         model = cnn_lstm_ctc_ocr.LSTMOCR('eval')
         model.build_graph()
-        val_feeder, num_samples = self.input_batch_generator(self.split_name,
-                                                             batch_size=FLAGS.batch_size,
-                                                             data_dir=FLAGS.data_dir)
+        val_feeder, num_samples = self.input_batch_generator(self.split_name, is_training=False,
+                                                             batch_size=FLAGS.batch_size)
 
         num_batches_per_epoch = int(math.ceil(num_samples / float(FLAGS.batch_size)))
 
@@ -68,8 +52,7 @@ class EvaluateModel(PrepareData):
                                                                                    num_samples))
 
             saver.restore(sess, checkpoint_file)
-            true = 0.
-            false = 0.
+
             for i in range(num_batches_per_epoch):
                 inputs, labels, _ = next(val_feeder)
                 feed = {model.inputs: inputs,
@@ -90,18 +73,14 @@ class EvaluateModel(PrepareData):
                     pred.append(code)
                 for j in range(len(gt)):
                     print("%s  :  %s" % (gt[j], pred[j]))
-                    if gt[j] == pred[j]:
-                        true += 1
-                    else:
-                        false += 1
                 # --
                 elapsed = time.time()
                 elapsed = elapsed - start
                 print('{}/{}, {:.5f} seconds.'.format(i, num_batches_per_epoch, elapsed))
-                # print the decode result
-            print("accuracy: %f" % (true/(true+false)))
 
-            # summary_str, step = sess.run([model.merged_summay, model.global_step])
+                # print the decode resultEvaluateModel
+
+            # summary_str, step = sess.run([CCR.merged_summay, CCR.global_step])
             # eval_writer.add_summary(summary_str, step)
             return
 
@@ -112,7 +91,7 @@ class EvaluateModel(PrepareData):
         img = cv2.resize(img, (FLAGS.image_width, FLAGS.image_height))
         img = np.reshape(img, [FLAGS.image_height, FLAGS.image_width, FLAGS.image_channel])
 
-        # model
+        # CCR
         model = cnn_lstm_ctc_ocr.LSTMOCR('eval')
         model.build_graph()
 
@@ -129,7 +108,7 @@ class EvaluateModel(PrepareData):
             print('Evaluating checkpoint_path={}'.format(checkpoint_file))
 
             saver.restore(sess, checkpoint_file)
-            # restore model finish
+            # restore CCR finish
 
             inputs = [img]
             feed = {model.inputs: inputs}
@@ -150,7 +129,7 @@ class EvaluateModel(PrepareData):
             return pred[-1]
 
     def marge_infer_model(self, sess, model, img):
-        # need to load model before call this function
+        # need to load CCR before call this function
 
         # image processed
         img = img.astype(np.float32) / 255.
@@ -160,50 +139,66 @@ class EvaluateModel(PrepareData):
         # start predict
         inputs = [img]
         feed = {model.inputs: inputs}
-        predictions = sess.run(model.dense_decoded, feed)
+        predictions = sess.run(model.trans_1, feed)
 
-        pred = list()
 
-        for j in range(len(predictions)):
-            code = [utils.decode_maps[c] if c != -1 else '' for c in predictions[j]]
-            code = ''.join(code)
-            pred.append(code)
 
-        return pred[-1]
+        return predictions, img
+
+
+# -------------------------------------------
+
+from tensorflow.python.tools import inspect_checkpoint as chkp
 
 
 if __name__ == "__main__":
-    """
-    img_path = "../testing/3H9255.jpg"
+    # config = configure.Config(root_path=root_path)
+    ocr_checkpoint_path = "/data2/CNN_LSTM_CTC_Tensorflow/checkpoint"
 
-    input_image = image_reader(img_path)
-
-    with tf.Graph().as_default() as graph:
-        with tf.Session(graph=graph) as sess:
+    with tf.get_default_graph().as_default():
+        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
             cnn_lstm_ctc = EvaluateModel()
             ocr_model = cnn_lstm_ctc_ocr.LSTMOCR('eval')
             ocr_model.build_graph()
 
-            if tf.gfile.IsDirectory(FLAGS.checkpoint_dir):
-                checkpoint_file = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
+            if tf.gfile.IsDirectory(ocr_checkpoint_path):
+                checkpoint_file = tf.train.latest_checkpoint(ocr_checkpoint_path)
             else:
-                checkpoint_file = FLAGS.checkpoint_dir
+                checkpoint_file = ocr_checkpoint_path
 
-            ocr_cnn_scope_to_restore = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='cnn')
-            ocr_lstm_scope_to_restore = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='lstm')
+            # show tensors in the checkpoint
+            chkp.print_tensors_in_checkpoint_file(checkpoint_file, tensor_name='', all_tensors=False)
+
+            # get variable to restore
             ocr_stn_scope_to_restore = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='stn-1')
-            ocr_restore = tf.train.Saver(ocr_cnn_scope_to_restore + ocr_lstm_scope_to_restore + ocr_stn_scope_to_restore)
+
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
+
+            ocr_restore = tf.train.Saver(ocr_stn_scope_to_restore)
+            print(checkpoint_file)
             ocr_restore.restore(sess, checkpoint_file)
+ 
+            # get images
+            img_dir = '/data2/CNN_LSTM_CTC_Tensorflow/imgs/val'
+            img_names_list = os.listdir(img_dir)
 
-            # show tensors in the graph
-            for each_layer in tf.global_variables():
-                print(each_layer)
+            for img_name in img_names_list:
+                try:
+                    img_path = os.path.join(img_dir, img_name)
+                    img = cv2.imread(img_path)
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    stn_predict, img = cnn_lstm_ctc.marge_infer_model(sess, ocr_model, img)
 
-            start_time = time.time()
-            # txt_ocr = cnn_lstm_ctc.marge_infer_model(sess, ocr_model, input_image)
-            # print("ccr model spent %f sec" % (time.time() - start_time))
-            # print(txt_ocr)
-    """
-    cnn_lstm_ctc = EvaluateModel()
-    cnn_lstm_ctc.parse_param()
-    cnn_lstm_ctc.eval_model()
+                    print("img path: %s, img size: (%d, %d), " % (img_path, img.shape[0], img.shape[1]), end='')
+
+
+                    #Saving plot
+                    figc=np.concatenate((stn_predict[0],img),axis=1)
+                    plt.imsave('./imgs/stn_output4/'+img_name+'_stn.png', stn_predict[0])
+                    #img.save(os.path.join("./imgs/stn_output/",img_name+"_stn.png"))
+                except Exception as e:
+                    print("--------------")
+                    print(e)
+                    print(img_name)
+                    print("--------------")

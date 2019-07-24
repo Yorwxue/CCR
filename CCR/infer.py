@@ -1,16 +1,10 @@
-import datetime
-import logging
-import os
 import time
 
-import cv2
-import numpy as np
 import tensorflow as tf
 
 import cnn_lstm_otc_ocr
-import utils
-import helper
-from preparedata import PrepareData
+from CCR import utils
+from CCR.preparedata import PrepareData
 FLAGS = utils.FLAGS
 import math
 import argparse
@@ -57,7 +51,7 @@ class EvaluateModel(PrepareData):
                 predictions = sess.run(model.dense_decoded, feed)
                 pred = list()
                 for j in range(len(predictions)):
-                    code = [utils.decode_maps[c] if c!=-1 else ''  for c in predictions[j]]
+                    code = [utils.decode_maps[c] if c != -1 else '' for c in predictions[j]]
                     code = ''.join(code)
                     pred.append(code)
                     print("%s" % pred[-1])
