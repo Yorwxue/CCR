@@ -1,4 +1,6 @@
 # Convolutional Connectionist-temporal-classification with Recurrent network(CCR)
+## Train
+You can found information of how to using CCR in "CCR/CCR"
 ## Deploy
 ### Celery
 + Celery is an asynchronous task manager.
