@@ -1,6 +1,7 @@
 # Convolutional Connectionist-temporal-classification with Recurrent network(CCR)
-## Train
-You can found information of how to using CCR in "CCR/CCR"
++ This a project used to do Optical Character Recognition(ocr).
+## Train & Test
++ You can found more information of how to do in Readme.md of "CCR/CCR"
 ## Deploy
 ### Celery
 + Celery is an asynchronous task manager.
@@ -47,3 +48,24 @@ worker_class = "gevent"
 errorlog = '-'
 loglevel = "info"
 ```
+
+### Send a request to test server
++ Not that This project only doing ocr without any character detect, so you can only send an image focus on target word.
++ Data Format
+```json
+{
+	"b64_images": ["YOUR/BASE64/ENCODED/IMAGE/STRING"]
+}
+```
+#### Using Postman
++ Header: {"content-type": "application/json"}
++ Method: POST
++ URL: http://localhost:5001/api/v0.0.0/plate-recognition/CCR
+
+#### Using Command Line
+```bash
+curl -X POST --data YOUR_DATA http://localhost:5001/api/v0.0.0/plate-recognition/CCR
+```
+#### Result
++ Server will return ```{"state": "task accepted"}```, if request successful, and you will get result of recognition in
+celery.

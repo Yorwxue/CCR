@@ -10,3 +10,4 @@ redis
 dataset/
 CCR/checkpoint/
 tf_serving/export_model/ccr
+app/static/file_cache/
