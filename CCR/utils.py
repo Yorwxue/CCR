@@ -9,9 +9,11 @@ num_classes = 38   # 10 digit + 26 alphabet + space + blank
 maxPrintLen = 100
 
 tf.app.flags.DEFINE_boolean('restore', False, 'whether to restore from the latest checkpoint')
-tf.app.flags.DEFINE_string('checkpoint_dir', './checkpoint/', 'the checkpoint dir')
-if not os.path.exists('./checkpoint/'):
-    os.makedirs('./checkpoint/')
+
+checkpoint_dir = os.path.abspath(os.path.join(__file__, "..", "checkpoint"))
+tf.app.flags.DEFINE_string('checkpoint_dir', checkpoint_dir, 'the checkpoint dir')
+if not os.path.exists(checkpoint_dir):
+    os.makedirs(checkpoint_dir)
 
 tf.app.flags.DEFINE_float('initial_learning_rate', 1e-3, 'inital lr')
 
@@ -39,7 +41,7 @@ tf.app.flags.DEFINE_string('data_dir', './imgs/', 'the data dir')
 # tf.app.flags.DEFINE_string('train_dir', './imgs/train/', 'the train data dir')
 # tf.app.flags.DEFINE_string('val_dir', './imgs/val/', 'the val data dir')
 # tf.app.flags.DEFINE_string('infer_dir', './imgs/infer/', 'the infer data dir')
-tf.app.flags.DEFINE_string('log_dir', './log', 'the logging dir')
+# tf.app.flags.DEFINE_string('log_dir', './log', 'the logging dir')
 tf.app.flags.DEFINE_string('mode', 'train', 'train, val or infer')
 
 
@@ -47,7 +49,7 @@ FLAGS = tf.app.flags.FLAGS
 
 # num_batches_per_epoch = int(num_train_samples/FLAGS.batch_size)
 
-charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' # for AVLAB dataset which labels dont have dot
+charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # for AVLAB dataset which labels dont have dot
 encode_maps = {}
 decode_maps = {}
 for i, char in enumerate(charset, 1):
